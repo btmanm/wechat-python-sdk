@@ -5,18 +5,20 @@ from setuptools import setup, find_packages
 
 setup(
     name='wechat-sdk',
-    version='0.5.8',
+    version='0.6.1',
     keywords=('wechat', 'sdk', 'wechat sdk'),
     description=u'微信公众平台Python开发包',
     long_description=open("README.rst").read(),
     license='BSD License',
 
-    url='https://github.com/doraemonext/wechat-python-sdk',
+    url='https://github.com/wechat-python-sdk/wechat-python-sdk',
     author='doraemonext',
     author_email='doraemonext@gmail.com',
 
     packages=find_packages(),
     include_package_data=True,
-    platforms='any',
     install_requires=map(lambda x: x.replace('==', '>='), open("requirements.txt").readlines()),
+
+    tests_require=['nose', 'httmock'],
+    test_suite='tests',
 )
