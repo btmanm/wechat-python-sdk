@@ -2,11 +2,15 @@
 
 import hashlib
 import re
+import os
 import requests
 import json
 import random
 import time
+import urllib2
+
 from datetime import timedelta, date
+from urlparse import urlparse, parse_qs
 
 from .base import WechatBase
 from .exceptions import UnOfficialAPIError, NeedLoginError, LoginError, LoginVerifyCodeError
@@ -1368,3 +1372,200 @@ class WechatExt(WechatBase):
             if not appid:
                 raise NeedLoginError(r.text)
             self.__appid = appid.group(1)
+            
+    def _transfer_file(self, **kwargs):
+        """
+        :param filepath: 文件名
+        :param remoteurl: URL 
+        """
+        self._init_ticket()
+        
+        url = 'https://mp.weixin.qq.com/cgi-bin/filetransfer?action=bizmedia&ticket_id={ticket_id}&ticket={ticket}&svr_time={timestamp}&token={token}&lang=zh_CN&seq=1'.format(
+            ticket_id=self.__ticket_id,
+            ticket=self.__ticket,
+            token=self.__token,
+            timestamp=int(time.time()),
+        )
+        
+        if kwargs['filepath']:
+            filepath = kwargs['filepath']
+            try:
+                files = {'file': open(filepath, 'rb')}
+            except IOError:
+                raise ValueError('file not exist: %s' % filepath)
+        elif kwargs['remoteurl']:
+            remoteurl = kwargs['remoteurl']
+            try:
+                o = urlparse(remoteurl)
+                filename = os.path.split(o.path)[1]
+                files = {'file': (filename, urllib2.urlopen(remoteurl, timeout=60))}
+            except IOError:
+                raise ValueError('failed to download file: %s' % remoteurl)
+        else:
+            raise ValueError('failed to open file')
+
+        headers = {
+            'referer': 'https://mp.weixin.qq.com/cgi-bin/operate_voice?oper=voice_get&t=media/audio_add&lang=zh_CN&token={token}'.format(
+                token=self.__token,
+            ),
+            'cookie': self.__cookies,
+        }
+        r = requests.post(url, files=files, headers=headers)
+        
+        try:
+            message = json.loads(r.text)
+        except ValueError:
+            raise NeedLoginError(r.text)
+        try:
+            if message['base_resp']['ret'] != 0:
+                raise ValueError(message['base_resp']['err_msg'])
+        except KeyError:
+            raise NeedLoginError(r.text)
+
+        del message['base_resp']
+        return message
+
+    def _create_voice(self, tmpencodeid, category, title):
+        """
+        :param category:
+                    1 财经
+                    2 动漫
+                    3 儿童
+                    4 搞笑
+                    5 健康
+                    6 教育
+                    7 军事
+                    8 科技
+                    9 历史
+                    10 旅行
+                    11 汽车
+                    12 情感
+                    13 体育
+                    14 外语
+                    15 文学
+                    16 校园
+                    17 音乐
+                    18 影视
+                    19 游戏
+                    20 娱乐 
+        """
+        url = 'https://mp.weixin.qq.com/cgi-bin/operate_voice?oper=create'
+        payload = {
+            'token': self.__token,
+            'lang': 'zh_CN',
+            'f': 'json',
+            'ajax': '1',
+            'random': random.random(),
+            'tmpencodeid': tmpencodeid,
+            'category': category,
+            'title': title,
+        }
+        headers = {
+            'referer': 'https://mp.weixin.qq.com/cgi-bin/operate_voice?oper=voice_get&t=media/audio_add&lang=zh_CN&token={token}'.format(
+                token=self.__token,
+            ),
+            'cookie': self.__cookies,
+        }
+        r = requests.post(url, data=payload, headers=headers)
+
+        try:
+            message = json.loads(r.text)
+        except ValueError:
+            raise NeedLoginError(r.text)
+        
+        try:
+            if message['base_resp']['ret'] != 0:
+                raise ValueError(message['base_resp']['err_msg'])
+        except KeyError:
+            raise NeedLoginError(r.text)
+
+        del message['base_resp']
+        return message
+
+    def _get_voice(self, encode_file_id):
+        url = 'https://mp.weixin.qq.com/cgi-bin/operate_voice?oper=voice_get&token={token}&lang=zh_CN&f=json&ajax=1&random={random}&fileid={fileid}'.format(
+            token=self.__token,
+            random=random.random(),
+            fileid=encode_file_id,
+        )
+        headers = {
+            'referer': 'https://mp.weixin.qq.com/cgi-bin/operate_voice?oper=voice_get&t=media/audio_add&lang=zh_CN&token={token}'.format(
+                token=self.__token,
+            ),
+            'cookie': self.__cookies,
+        }
+        r = requests.get(url, headers=headers)
+
+        try:
+            message = json.loads(r.text)
+        except ValueError:
+            raise NeedLoginError(r.text)
+        
+        try:
+            if message['base_resp']['ret'] != 0:
+                raise ValueError(message['base_resp']['err_msg'])
+        except KeyError:
+            raise NeedLoginError(r.text)
+
+        del message['base_resp']
+        return message
+
+    def upload_voice(self, category, title, filepath=None, remoteurl=None):
+        f = self._transfer_file(filepath=filepath, remoteurl=remoteurl)
+        voice = self._create_voice(f['content'], category, title)
+        f.update(voice)
+        
+        return f
+
+    def upload_image(self, groupid = 1, filepath=None, remoteurl=None):
+        self._init_ticket()
+
+        url = 'https://mp.weixin.qq.com/cgi-bin/filetransfer?action=upload_material&f=json&scene=1&writetype=doublewrite&groupid={groupid}&ticket_id={ticket_id}&ticket={ticket}&svr_time={timestamp}&token={token}&lang=zh_CN&seq=1'.format(
+            groupid=groupid,
+            ticket_id=self.__ticket_id,
+            ticket=self.__ticket,
+            token=self.__token,
+            timestamp=int(time.time()),
+        )
+
+        if filepath:
+            try:
+                files = {'file': open(filepath, 'rb')}
+            except IOError:
+                import sys
+                import traceback
+                
+                exc_info = sys.exc_info()
+                traceback.print_exception(*exc_info)
+                raise ValueError('file not exist: %s' % filepath)
+        elif remoteurl:
+            try:
+                o = urlparse(remoteurl)
+                filename = os.path.split(o.path)[1]
+                files = {'file': (filename, urllib2.urlopen(remoteurl, timeout=60))}
+            except IOError:
+                raise ValueError('failed to download file: %s' % remoteurl)
+        else:
+            raise ValueError('failed to open file')
+        
+        headers = {
+            'referer': 'https://mp.weixin.qq.com/cgi-bin/filepage?type=2&begin=0&count=12&t=media/img_list&token={token}&lang=zh_CN'.format(
+                token=self.__token,
+            ),
+            'cookie': self.__cookies,
+        }
+        r = requests.post(url, files=files, headers=headers)
+        
+        try:
+            message = json.loads(r.text)
+        except ValueError:
+            raise NeedLoginError(r.text)
+        
+        try:
+            if message['base_resp']['ret'] != 0:
+                raise ValueError(message['base_resp']['err_msg'])
+        except KeyError:
+            raise NeedLoginError(r.text)
+
+        del message['base_resp']
+        return message
