@@ -699,7 +699,7 @@ class WechatExt(WechatBase):
         :param news: list 对象, 其中的每个元素为一个 dict 对象, 代表一条图文, key 值分别为 ``title``, ``author``, ``summary``,
                      ``content``, ``picture_id``, ``from_url``, 对应内容为标题, 作者, 摘要, 内容, 素材库里的
                      图片ID(可通过 ``upload_file`` 函数上传获取), 来源链接。
-
+                     ``need_open_comment`` 对应内容为是否打开评论
                      其中必须提供的 key 值为 ``title`` 和 ``content``
 
                      示例::
@@ -711,6 +711,7 @@ class WechatExt(WechatBase):
                                  'summary': '图文摘要',
                                  'content': '图文内容',
                                  'picture_id': '23412341',
+                                 'need_open_comment': '1'
                                  'from_url': 'http://www.baidu.com',
                              },
                              {
@@ -752,6 +753,7 @@ class WechatExt(WechatBase):
             payload['digest'+str(i)] = item.get('summary')
             payload['content'+str(i)] = item.get('content')
             payload['fileid'+str(i)] = item.get('picture_id')
+            payload['need_open_comment' + str(i)] = item.get('need_open_comment')
             payload['sourceurl'+str(i)] = item.get('from_url')
             i += 1
         payload['count'] = i
