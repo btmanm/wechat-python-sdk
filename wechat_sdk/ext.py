@@ -1484,7 +1484,7 @@ class WechatExt(WechatBase):
         del message['base_resp']
         return message
 
-    def _get_voice(self, encode_file_id):
+    def get_voice(self, encode_file_id):
         url = 'https://mp.weixin.qq.com/cgi-bin/operate_voice?oper=voice_get&token={token}&lang=zh_CN&f=json&ajax=1&random={random}&fileid={fileid}'.format(
             token=self.__token,
             random=random.random(),
@@ -1513,6 +1513,8 @@ class WechatExt(WechatBase):
         return message
 
     def upload_voice(self, category, title, filepath=None, remoteurl=None):
+        """ 上传语音
+        """
         f = self._transfer_file(filepath=filepath, remoteurl=remoteurl)
         voice = self._create_voice(f['content'], category, title)
         f.update(voice)
@@ -1520,6 +1522,8 @@ class WechatExt(WechatBase):
         return f
 
     def upload_image(self, groupid = 1, filepath=None, remoteurl=None):
+        """ 上传永久图片
+        """
         self._init_ticket()
 
         url = 'https://mp.weixin.qq.com/cgi-bin/filetransfer?action=upload_material&f=json&scene=1&writetype=doublewrite&groupid={groupid}&ticket_id={ticket_id}&ticket={ticket}&svr_time={timestamp}&token={token}&lang=zh_CN&seq=1'.format(
